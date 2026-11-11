@@ -7,8 +7,8 @@
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <!-- Доступ к домашней сети в новых версиях Android -->
-    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
+    <!-- ACCESS_LOCAL_NETWORK не объявляем: при targetSdk ниже 37 Android 17 даёт доступ к домашней сети
+         автоматически, а явное объявление этот доступ отключает -->
 
     <application
         android:name=".StarApp"

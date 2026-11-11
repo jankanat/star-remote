@@ -119,7 +119,7 @@ class Controller(private val ctx: Context, private val settings: SettingsRepo, p
     suspend fun discover(): String? {
         log.info("Bonjour: ищу _starremote._tcp")
         val f = Discovery.find(ctx, 6000)
-        if (f == null) { log.warn("Bonjour: Mac не найден (спит или служба не установлена)"); return null }
+        if (f == null) { log.warn("Bonjour: Mac не найден (${Discovery.lastError ?: "нет ответа за 6 с"})"); return null }
         discoveredHost = f.host
         log.ok("Bonjour: найден «${f.name}» → ${f.host}:${f.port}")
         return f.host
@@ -130,7 +130,10 @@ class Controller(private val ctx: Context, private val settings: SettingsRepo, p
         val h = host() ?: return "Сначала укажи IP или найди Mac через Bonjour"
         val a = agent(h)
         val t0 = System.currentTimeMillis()
-        val name = a.ping(2000) ?: return "Mac по адресу $h не отвечает. Он спит или служба не установлена".also { log.warn(it) }
+        val name = a.ping(2000) ?: run {
+            val why = a.pingError(2000)
+            return "Mac по адресу $h не отвечает: ${why ?: "нет ответа"}".also { log.warn(it) }
+        }
         val ms = System.currentTimeMillis() - t0
         return try {
             val st = a.status()

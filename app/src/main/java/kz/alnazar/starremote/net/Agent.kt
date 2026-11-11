@@ -24,6 +24,11 @@ class Agent(private val ctx: Context, private val host: String, private val port
         if (j.optString("app") == "starremote") j.optString("host", "Mac") else null
     } catch (_: Exception) { null }
 
+    /** Причина, по которой /ping не прошёл (для журнала). */
+    suspend fun pingError(timeoutMs: Int = 2000): String? = try {
+        request("GET", "/ping", timeoutMs, timeoutMs, auth = false); null
+    } catch (e: Exception) { e.message ?: e.javaClass.simpleName }
+
     suspend fun status(): MacStatus {
         val j = request("GET", "/status", 2500, 4000)
         return MacStatus(j.optBoolean("caffeinate"), j.optBoolean("torrProc"), j.optBoolean("torrserve"), j.optBoolean("guard"), j.optString("uptime"))
