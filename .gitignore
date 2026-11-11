@@ -17,3 +17,7 @@ app/build/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ключи подписи
+secrets/
+signing.txt
