@@ -210,8 +210,14 @@ class Controller(private val ctx: Context, private val settings: SettingsRepo, p
         log.info("Запуск шортката «${st.offShortcut}»")
         val r = a.run(st.offShortcut)
         if (!r.ok) {
-            if (r.output.isNotBlank()) log.err("Mac: ${r.output.take(400)}")
-            fail("Шорткат «${st.offShortcut}» не выполнился (код ${r.code})"); return
+            // pkill в шорткате даёт код 1, если TorrServe уже не работал: это не ошибка
+            val ms = runCatching { a.status() }.getOrNull()
+            if (ms != null && !ms.torrProc && !ms.torrserve) {
+                log.info("TorrServe уже был выключен (шорткат вернул код ${r.code})")
+            } else {
+                if (r.output.isNotBlank()) log.err("Mac: ${r.output.take(400)}")
+                fail("Шорткат «${st.offShortcut}» не выполнился (код ${r.code})"); return
+            }
         }
         runCatching { a.guardStop() }
         AutoOff.cancel(ctx)
