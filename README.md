@@ -22,6 +22,16 @@ curl -fsSL https://raw.githubusercontent.com/jankanat/star-remote/main/mac/insta
 
 На Mac должно быть включено «Пробуждать для доступа к сети» (`pmset -g` показывает `womp 1`).
 
+## Расписание бодрствования
+
+Если Mac не просыпается по Wi-Fi (например, Monterey через OpenCore Legacy Patcher), он может сам просыпаться по таймеру и не засыпать в заданные часы:
+
+```
+curl -fsSL https://raw.githubusercontent.com/jankanat/star-remote/main/mac/schedule.sh | bash -s 16:00 02:30
+```
+
+Отключить: та же команда с `off` вместо времени.
+
 ## Сборка APK
 
 Сборка идёт в GitHub Actions при каждом пуше в `main`. Готовый APK лежит во вкладке Actions → последняя сборка → Artifacts → `StarRemote-apk`.
