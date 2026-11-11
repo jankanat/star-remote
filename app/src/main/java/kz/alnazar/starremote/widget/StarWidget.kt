@@ -9,6 +9,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.ImageProvider
+import androidx.glance.LocalContext
 import androidx.glance.LocalSize
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionParametersOf
@@ -67,9 +69,7 @@ class StarWidget : GlanceAppWidget() {
     private fun Content(s: AppSettings, text: String, tone: Tone, busy: Boolean) {
         val size = LocalSize.current
         val light = s.widgetLight / 100f
-        val bg = Color.hsl(s.widgetHue.coerceIn(0f, 360f), s.widgetSat / 100f, light, alpha = 1f - s.widgetTransparency / 100f)
         val fg = if (s.widgetLight > 60) Color(0xFF14182E) else Color(0xFFEEF1FF)
-        val chip = if (s.widgetLight > 60) Color(0x22000000) else Color(0x1FFFFFFF)
         val toneColor = when (tone) {
             Tone.ON -> Color(0xFF9BE7B0)
             Tone.WAIT -> Color(0xFFFFD98A)
@@ -88,9 +88,19 @@ class StarWidget : GlanceAppWidget() {
         val shown = all.take(rows * cols)
         val more = all.size - shown.size
 
+        // стекло с бликами рисуется картинкой под реальный размер виджета
+        val k = LocalContext.current.resources.displayMetrics.density.coerceAtMost(2.5f)
+        val wDp = size.width.value; val hDp = size.height.value
+        val panel = ImageProvider(WidgetArt.panel((wDp * k).toInt(), (hDp * k).toInt(), 24 * k,
+            s.widgetHue.coerceIn(0f, 360f), s.widgetSat / 100f, light, 1f - s.widgetTransparency / 100f))
+        val usedRows = ((shown.size + cols - 1) / cols).coerceAtLeast(1)
+        val chipW = (wDp - 24f - 6f * (cols - 1)) / cols
+        val chipH = (hDp - 24f - 24f - 6f * (usedRows - 1)) / usedRows
+        val chipImg = ImageProvider(WidgetArt.chip((chipW * k).toInt(), (chipH * k).toInt(), 14 * k, s.widgetLight > 60))
+
         Column(
             modifier = GlanceModifier.fillMaxSize().cornerRadius(24.dp)
-                .background(ColorProvider(bg)).padding(12.dp)
+                .background(panel).padding(12.dp)
         ) {
             Row(
                 modifier = GlanceModifier.fillMaxWidth().clickable(actionStartActivity<MainActivity>()),
@@ -114,7 +124,7 @@ class StarWidget : GlanceAppWidget() {
                 Row(GlanceModifier.fillMaxWidth().defaultWeight()) {
                     row.forEachIndexed { j, b ->
                         if (j > 0) Spacer(GlanceModifier.width(6.dp))
-                        Btn(b, fg, chip, GlanceModifier.defaultWeight())
+                        Btn(b, fg, chipImg, GlanceModifier.defaultWeight())
                     }
                     if (row.size < cols) {
                         Spacer(GlanceModifier.width(6.dp))
@@ -126,9 +136,9 @@ class StarWidget : GlanceAppWidget() {
     }
 
     @Composable
-    private fun Btn(b: WButton, fg: Color, chip: Color, modifier: GlanceModifier) {
+    private fun Btn(b: WButton, fg: Color, chip: ImageProvider, modifier: GlanceModifier) {
         Row(
-            modifier = modifier.fillMaxSize().cornerRadius(14.dp).background(ColorProvider(chip))
+            modifier = modifier.fillMaxSize().cornerRadius(14.dp).background(chip)
                 .padding(horizontal = 10.dp)
                 .clickable(actionRunCallback<WidgetClick>(actionParametersOf(KindKey to b.kind))),
             verticalAlignment = Alignment.CenterVertically,

@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -136,7 +137,18 @@ private fun WidgetPreview(s: AppSettings, w: Dp, h: Dp) {
         Modifier.width(w).height(h).clip(RoundedCornerShape(24.dp))
             .background(Brush.linearGradient(listOf(
                 Color.hsl(s.widgetHue, sat, (light + .12f).coerceAtMost(1f), a), Color.hsl(s.widgetHue, sat, light, a))))
-            .border(1.dp, Color.White.copy(alpha = .22f), RoundedCornerShape(24.dp))
+            .drawBehind {
+                // те же блики, что на настоящем виджете
+                drawRect(Brush.radialGradient(
+                    0f to Color.White.copy(alpha = .26f), .45f to Color.White.copy(alpha = .08f), 1f to Color.Transparent,
+                    center = Offset(size.width * .12f, -size.height * .15f), radius = maxOf(size.width, size.height) * .75f))
+                fun band(cx: Float, bw: Float, a: Float) = drawRect(Brush.linearGradient(
+                    0f to Color.Transparent, .5f to Color.White.copy(alpha = a), 1f to Color.Transparent,
+                    start = Offset(cx - bw, -size.height * .2f), end = Offset(cx + bw, size.height * .35f)))
+                band(size.width * .62f, size.width * .16f, .13f)
+                band(size.width * .8f, size.width * .05f, .10f)
+            }
+            .border(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = .45f), Color.White.copy(alpha = .12f))), RoundedCornerShape(24.dp))
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -150,7 +162,10 @@ private fun WidgetPreview(s: AppSettings, w: Dp, h: Dp) {
             Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 row.forEach { b ->
                     Row(
-                        Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(14.dp)).background(chip).padding(horizontal = 10.dp),
+                        Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(14.dp)).background(chip)
+                            .background(Brush.verticalGradient(0f to Color.White.copy(alpha = .2f), .55f to Color.Transparent))
+                            .border(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = .35f), Color.White.copy(alpha = .08f))), RoundedCornerShape(14.dp))
+                            .padding(horizontal = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(Modifier.size(8.dp).background(b.dot, CircleShape))
