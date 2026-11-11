@@ -43,7 +43,22 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: gradle :app:assembleRelease --stacktrace
+        run: |
+          set -o pipefail
+          gradle :app:assembleRelease --console=plain 2>&1 | tee build.log
+
+      # Ошибки сборки выводятся пометками, чтобы их было видно без входа в GitHub
+      - name: Ошибки (1)
+        if: failure()
+        run: |
+          grep -E "^e: |error:|What went wrong|Could not|Execution failed|> " build.log | grep -v "^> Task" | head -40 > errs.txt || true
+          head -10 errs.txt | while IFS= read -r l; do echo "::error::$l"; done
+          sed -n '11,20p' errs.txt | while IFS= read -r l; do echo "::warning::$l"; done
+      - name: Ошибки (2)
+        if: failure()
+        run: |
+          sed -n '21,30p' errs.txt | while IFS= read -r l; do echo "::error::$l"; done
+          sed -n '31,40p' errs.txt | while IFS= read -r l; do echo "::warning::$l"; done
 
       - uses: actions/upload-artifact@v4
         with:
