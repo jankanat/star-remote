@@ -61,9 +61,10 @@ fun WidgetDesignerContent(s: AppSettings, repo: SettingsRepo, tap: () -> Unit) {
             .background(Brush.radialGradient(listOf(Color(0xFF16839A), Color.Transparent), center = Offset(1100f, 1000f), radius = 800f))
             .padding(18.dp)
     ) {
-        val cell = (maxWidth - 30.dp) / 4
+        val full = maxWidth
+        val cell = (full - 30.dp) / 4
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            WidgetPreview(s, if (wide) maxWidth else cell * 2 + 10.dp, cell * 2 + 14.dp)
+            WidgetPreview(s, if (wide) full else cell * 2 + 10.dp, cell * 2 + 14.dp)
             for (r in 0 until 2) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 repeat(4) { Box(Modifier.size(cell).clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = .1f))) }
             }
