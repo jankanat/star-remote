@@ -28,9 +28,9 @@ data class AppSettings(
     val onShortcut: String = "Запустить TorrServer",
     val offShortcut: String = "Отключить Torrserver",
     val custom: List<CustomButton> = emptyList(),
-    // пробуждение и таймер
-    val wolRetries: Int = 5,
-    val wakeWaitSec: Int = 60,
+    // расписание (совпадает с mac/schedule.sh) и таймер
+    val awakeFrom: String = "16:00",
+    val awakeTo: String = "02:30",
     val autoOffHours: Int = 4,
     val macGuard: Boolean = true,
     // TorrServe
@@ -56,7 +56,7 @@ data class AppSettings(
     val haptic: Boolean = true,
     val hapticStrong: Boolean = false,
 ) {
-    val configured: Boolean get() = (ip.isNotBlank() || mac.isNotBlank()) && token.isNotBlank()
+    val configured: Boolean get() = token.isNotBlank()
 }
 
 /**
@@ -114,8 +114,8 @@ class SettingsRepo(ctx: Context) {
                 onShortcut = j.optString("onShortcut", d.onShortcut),
                 offShortcut = j.optString("offShortcut", d.offShortcut),
                 custom = custom,
-                wolRetries = j.optInt("wolRetries", d.wolRetries),
-                wakeWaitSec = j.optInt("wakeWaitSec", d.wakeWaitSec),
+                awakeFrom = j.optString("awakeFrom", d.awakeFrom),
+                awakeTo = j.optString("awakeTo", d.awakeTo),
                 autoOffHours = j.optInt("autoOffHours", d.autoOffHours),
                 macGuard = j.optBoolean("macGuard", d.macGuard),
                 torrPort = j.optInt("torrPort", d.torrPort),
@@ -149,7 +149,7 @@ class SettingsRepo(ctx: Context) {
             put("custom", JSONArray().apply {
                 s.custom.forEach { put(JSONObject().put("id", it.id).put("name", it.name).put("shortcut", it.shortcut)) }
             })
-            put("wolRetries", s.wolRetries); put("wakeWaitSec", s.wakeWaitSec)
+            put("awakeFrom", s.awakeFrom); put("awakeTo", s.awakeTo)
             put("autoOffHours", s.autoOffHours); put("macGuard", s.macGuard)
             put("torrPort", s.torrPort); put("torrCheck", s.torrCheck); put("torrInApp", s.torrInApp)
             put("widgetHue", s.widgetHue.toDouble()); put("widgetSat", s.widgetSat.toDouble())

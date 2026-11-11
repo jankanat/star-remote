@@ -23,9 +23,7 @@ import kz.alnazar.starremote.net.Agent
 import kz.alnazar.starremote.net.AgentException
 import kz.alnazar.starremote.net.Discovery
 import kz.alnazar.starremote.net.Net
-import kz.alnazar.starremote.net.WakeOnLan
 import kz.alnazar.starremote.widget.StarWidget
-import kotlin.math.max
 
 enum class Tone { IDLE, WAIT, ON, ERROR }
 
@@ -149,11 +147,10 @@ class Controller(private val ctx: Context, private val settings: SettingsRepo, p
         val st = s
         log.info("Нажата «Включить»")
         if (!st.configured) {
-            fail("Заполни подключение в настройках: IP или MAC и ключ доступа")
-            _events.tryEmit(OpEvent.WarpEnd(false)); return
+            fail("Заполни подключение в настройках: IP и ключ доступа"); return
         }
+        val h = ensureAwake() ?: return
         _events.tryEmit(OpEvent.WarpStart)
-        val h = ensureAwake() ?: run { _events.tryEmit(OpEvent.WarpEnd(false)); return }
         val a = agent(h)
 
         set { it.copy(tone = Tone.WAIT, text = "Запускаю шорткат «${st.onShortcut}»…") }
@@ -202,7 +199,7 @@ class Controller(private val ctx: Context, private val settings: SettingsRepo, p
         if (h == null || agent(h).ping(1200) == null) {
             log.info("Mac не отвечает, считаю его выключенным")
             AutoOff.cancel(ctx)
-            set { it.copy(tone = Tone.IDLE, text = "Mac спит", mac = "спит", online = false, isOn = false, torrUp = false) }
+            set { it.copy(tone = Tone.IDLE, text = Schedule.asleepText(st), mac = "спит", online = false, isOn = false, torrUp = false) }
             _events.tryEmit(OpEvent.Fade); return
         }
         val a = agent(h)
@@ -249,11 +246,13 @@ class Controller(private val ctx: Context, private val settings: SettingsRepo, p
         }
         var h = host()
         var name = h?.let { agent(it).ping(1200) }
-        if (name == null && st.ip.isBlank()) {
+        if (name == null) {
             Discovery.find(ctx, 2500)?.let { discoveredHost = it.host; h = it.host; name = agent(it.host).ping(1200) }
         }
         if (h == null || name == null) {
-            set { it.copy(tone = Tone.IDLE, text = "Mac спит", mac = "спит", online = false, isOn = false, torrUp = false) }
+            val text = Schedule.asleepText(st)
+            set { it.copy(tone = if (Schedule.shouldBeAwake(st)) Tone.ERROR else Tone.IDLE, text = text,
+                mac = "спит", online = false, isOn = false, torrUp = false) }
             return
         }
         val ms = agent(h!!).status()
@@ -266,61 +265,38 @@ class Controller(private val ctx: Context, private val settings: SettingsRepo, p
         set { it.copy(tone = if (on) Tone.ON else Tone.IDLE, text = text, mac = "онлайн", online = true, isOn = on, torrUp = ms.torrserve) }
     }
 
-    /** Будит Mac и ждёт, пока служба ответит. Возвращает адрес или null. */
+    /** Проверяет, отвечает ли Mac. Пробуждения по сети нет: Mac работает по расписанию. */
     private suspend fun ensureAwake(): String? {
         val st = s
         set { it.copy(tone = Tone.WAIT, text = "Проверяю Mac…") }
         host()?.let { h ->
-            if (agent(h).ping(900) != null) {
-                log.info("Mac уже не спит ($h)")
+            if (agent(h).ping(1500) != null) {
                 set { it.copy(mac = "онлайн", online = true) }
                 return h
             }
         }
         if (!Net.onWifi(ctx)) { fail("Телефон не подключён к Wi-Fi"); return null }
-        if (!WakeOnLan.isValidMac(st.mac)) {
-            fail(if (st.mac.isBlank()) "Mac не отвечает, а MAC-адрес для пробуждения не указан" else "MAC-адрес указан неверно")
-            return null
-        }
-
-        set { it.copy(tone = Tone.WAIT, text = "Отправляю сигнал пробуждения…", mac = "просыпается") }
-        val retries = st.wolRetries.coerceIn(1, 10)
-        val waitMs = st.wakeWaitSec.coerceIn(10, 300) * 1000L
-        val interval = max(2000L, waitMs / retries)
-        val t0 = System.currentTimeMillis()
-        var sent = 0
-        var nextWol = 0L
-        var nextDiscovery = 4000L
-
-        while (true) {
-            val elapsed = System.currentTimeMillis() - t0
-            if (elapsed > waitMs) break
-            if (sent < retries && elapsed >= nextWol) {
-                val n = runCatching { WakeOnLan.send(ctx, st.mac, host()) }
-                    .getOrElse { log.err("Сигнал не отправлен: ${it.message}"); 0 }
-                sent++
-                nextWol += interval
-                log.info("Сигнал пробуждения $sent/$retries (пакетов: $n)")
-                if (sent == 1) set { it.copy(text = "Mac просыпается…") }
-            }
-            val h = host()
-            if (h != null && agent(h).ping(900) != null) {
-                log.ok("Mac проснулся за ${"%.1f".format((System.currentTimeMillis() - t0) / 1000.0)} с ($h)")
+        // IP мог смениться: ищем Mac через Bonjour
+        Discovery.find(ctx, 2500)?.let { f ->
+            if (agent(f.host).ping(1500) != null) {
+                if (f.host != st.ip.trim()) log.warn("IP Mac сменился: ${f.host} (в настройках ${st.ip.ifBlank { "пусто" }})")
+                discoveredHost = f.host
                 set { it.copy(mac = "онлайн", online = true) }
-                return h
+                return f.host
             }
-            if (elapsed >= nextDiscovery) {
-                nextDiscovery += 6000
-                Discovery.find(ctx, 2000)?.let { f ->
-                    if (f.host != discoveredHost) log.info("Bonjour: Mac на ${f.host}")
-                    discoveredHost = f.host
-                }
-            }
-            delay(500)
         }
-        fail("Mac не проснулся за ${st.wakeWaitSec} с")
-        set { it.copy(mac = "спит") }
+        asleep(st)
         return null
+    }
+
+    /** Mac не ответил: текст зависит от расписания. */
+    private fun asleep(st: AppSettings) {
+        val text = Schedule.asleepText(st)
+        if (Schedule.shouldBeAwake(st)) log.err(text) else log.info(text)
+        set {
+            it.copy(tone = if (Schedule.shouldBeAwake(st)) Tone.ERROR else Tone.IDLE, text = text,
+                mac = "спит", online = false, isOn = false, torrUp = false)
+        }
     }
 
     private fun fail(msg: String) {

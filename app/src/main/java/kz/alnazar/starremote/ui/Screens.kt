@@ -41,7 +41,7 @@ import kotlinx.coroutines.launch
 import kz.alnazar.starremote.StarApp
 import kz.alnazar.starremote.data.CustomButton
 import kz.alnazar.starremote.data.Level
-import kz.alnazar.starremote.net.WakeOnLan
+import kz.alnazar.starremote.control.Schedule
 
 enum class Route(val level: Int) {
     HOME(0), SETTINGS(1), CONN(2), BUTTONS(2), WAKE(2), TORR(2), WIDGET(2), SPACE(2), FEEDBACK(2), LOG(2), TORRWEB(1)
@@ -56,12 +56,12 @@ fun SettingsRoot(app: StarApp, go: (Route) -> Unit, back: () -> Unit) {
     Page("Настройки", "Пульт", back) {
         BigTitle("Настройки")
         Section("Mac") {
-            row(58.dp) { NavRow(Ic.conn, "Подключение", s.ip.ifBlank { if (s.mac.isBlank()) "не задано" else "по Bonjour" }) { go(Route.CONN) } }
+            row(58.dp) { NavRow(Ic.conn, "Подключение", s.ip.ifBlank { "по Bonjour" }) { go(Route.CONN) } }
         }
         Section("Управление") {
             row(58.dp) { NavRow(Ic.buttons, "Кнопки", "${2 + s.custom.size}") { go(Route.BUTTONS) } }
             row(58.dp) {
-                NavRow(Ic.wake, "Пробуждение и таймер", if (s.autoOffHours == 0) "без таймера" else "выкл. через ${s.autoOffHours} ч") { go(Route.WAKE) }
+                NavRow(Ic.wake, "Расписание и таймер", "${s.awakeFrom}–${s.awakeTo}") { go(Route.WAKE) }
             }
             row(58.dp) { NavRow(Ic.torr, "TorrServe", ":${s.torrPort}") { go(Route.TORR) } }
         }
@@ -89,7 +89,6 @@ fun ConnectionScreen(app: StarApp, back: () -> Unit) {
     Page("Подключение", "Настройки", back) {
         Section("Сеть", "IP лучше закрепить за iMac в роутере. Если IP оставить пустым, приложение найдёт Mac через Bonjour.") {
             row { FieldRow("IP-адрес", s.ip, { v -> upd { it.copy(ip = v.trim()) } }, "192.168.0.243", KeyboardType.Decimal) }
-            row { FieldRow("MAC Wi-Fi", s.mac, { v -> upd { it.copy(mac = v.trim()) } }, "7c:c3:a1:ac:f6:7b", mono = true) }
             row {
                 ActionRow(if (working) "Ищу…" else "Найти Mac через Bonjour", enabled = !working) {
                     working = true
@@ -100,10 +99,6 @@ fun ConnectionScreen(app: StarApp, back: () -> Unit) {
                     }
                 }
             }
-        }
-        if (s.mac.isNotBlank() && !WakeOnLan.isValidMac(s.mac)) {
-            Text("MAC-адрес выглядит неверно: нужно 6 пар символов, например 7c:c3:a1:ac:f6:7b", color = P.danger, fontSize = 13.sp,
-                modifier = Modifier.padding(horizontal = 16.dp))
         }
         Section("Служба на Mac", "Ключ доступа выводит установщик службы на Mac. Он хранится на телефоне в зашифрованном виде и не попадает в журнал.") {
             row { FieldRow("Порт", s.agentPort.toString(), { v -> v.toIntOrNull()?.let { p -> upd { it.copy(agentPort = p) } } }, "47823", KeyboardType.Number) }
@@ -171,15 +166,17 @@ fun ButtonsScreen(app: StarApp, back: () -> Unit) {
 fun WakeScreen(app: StarApp, back: () -> Unit) {
     val s by app.settings.flow.collectAsState()
     val upd = app.settings::update
-    Page("Пробуждение", "Настройки", back) {
-        Section("Сигнал пробуждения", "По Wi-Fi старый iMac иногда пропускает сигнал, поэтому приложение повторяет его и ждёт, пока Mac ответит.") {
-            row { StepperRow("Повторов сигнала", s.wolRetries, { v -> upd { it.copy(wolRetries = v) } }, 1, 10) }
-            row {
-                SliderRow("Ждать пробуждения", "${s.wakeWaitSec} с", s.wakeWaitSec.toFloat(), 15f..180f,
-                    { v -> upd { it.copy(wakeWaitSec = (v / 5).toInt() * 5) } })
-            }
+    val ok = Schedule.parse(s.awakeFrom) != null && Schedule.parse(s.awakeTo) != null
+    Page("Расписание", "Настройки", back) {
+        Section(
+            "Когда Mac не спит",
+            "Те же часы, что заданы на Mac командой schedule.sh. Вне этих часов приложение пишет «Mac спит, доступен с …» и не пытается его будить.",
+        ) {
+            row { FieldRow("С", s.awakeFrom, { v -> upd { it.copy(awakeFrom = v.trim()) } }, "16:00", KeyboardType.Number) }
+            row { FieldRow("До", s.awakeTo, { v -> upd { it.copy(awakeTo = v.trim()) } }, "02:30", KeyboardType.Number) }
         }
-        Section("Автовыключение", "Даже если телефон сядет или уйдёт из сети, Mac всё равно перестанет бодрствовать в срок.") {
+        if (!ok) Text("Время пиши так: 16:00", color = P.danger, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 16.dp))
+        Section("Автовыключение TorrServe", "Даже если телефон сядет или уйдёт из сети, Mac сам выключит TorrServe в срок.") {
             row {
                 ColRow {
                     Segmented(listOf("Выкл", "1 ч", "2 ч", "4 ч", "8 ч"), autoOffOptions.indexOf(s.autoOffHours).coerceAtLeast(0)) { i ->
