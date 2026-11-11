@@ -86,7 +86,7 @@ stop_guard() {
 }
 has_guard() { [ -f "$GUARD_PID" ] && kill -0 "$(cat "$GUARD_PID")" 2>/dev/null && echo true || echo false; }
 is_torr_proc() { pgrep -f -i "torrserver-darwin" >/dev/null 2>&1 && echo true || echo false; }
-is_torr_up() { nc -z -G 1 127.0.0.1 "$TORR_PORT" >/dev/null 2>&1 && echo true || echo false; }
+is_torr_up() { { nc -z -G 1 127.0.0.1 "$TORR_PORT" || nc -z -G 1 ::1 "$TORR_PORT"; } >/dev/null 2>&1 && echo true || echo false; }
 
 case "$METHOD $PATH_ONLY" in
   "GET /status")
