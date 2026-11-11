@@ -73,7 +73,7 @@ fun SettingsRoot(app: StarApp, go: (Route) -> Unit, back: () -> Unit) {
                 NavRow(Ic.sound, "Звук и вибрация", fb) { go(Route.FEEDBACK) }
             }
         }
-        Section("Диагностика", "Звёздный пульт ${app.version}") {
+        Section("Диагностика", "StarRemote ${app.version}") {
             row(58.dp) { NavRow(Ic.log, "Журнал", "${log.size} зап.") { go(Route.LOG) } }
         }
     }
@@ -304,7 +304,7 @@ fun LogScreen(app: StarApp, back: () -> Unit) {
             row {
                 ActionRow("Поделиться") {
                     val i = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, app.journal.export(app.version))
-                    ctx.startActivity(Intent.createChooser(i, "Журнал Звёздного пульта"))
+                    ctx.startActivity(Intent.createChooser(i, "Журнал StarRemote"))
                 }
             }
             row { ActionRow("Очистить", danger = true) { app.journal.clear(); copied = false } }

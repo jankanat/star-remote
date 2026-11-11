@@ -63,7 +63,7 @@ class WidgetActionWorker(ctx: Context, params: WorkerParameters) : CoroutineWork
         }
         val n = NotificationCompat.Builder(applicationContext, "work")
             .setSmallIcon(android.R.drawable.stat_notify_sync)
-            .setContentTitle("Звёздный пульт")
+            .setContentTitle("StarRemote")
             .setContentText("Связываюсь с Mac…")
             .build()
         return ForegroundInfo(42, n)

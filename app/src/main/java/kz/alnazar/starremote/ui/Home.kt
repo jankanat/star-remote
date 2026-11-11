@@ -73,7 +73,7 @@ fun HomeScreen(
         // верхняя строка
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Звёздный пульт", color = P.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, letterSpacing = .3.sp)
+                Text("StarRemote", color = P.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, letterSpacing = .3.sp)
                 Text("iMac 21.5″ · ${st.mac}", color = P.muted, fontSize = 12.5.sp)
             }
             Glass(backdrop, RoundedCornerShape(14.dp), Modifier.size(44.dp), onClick = onSettings) {

@@ -49,7 +49,7 @@ class Journal(ctx: Context) {
     }
 
     fun export(appVersion: String): String = buildString {
-        appendLine("Звёздный пульт $appVersion · Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}) · ${Build.MANUFACTURER} ${Build.MODEL}")
+        appendLine("StarRemote $appVersion · Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}) · ${Build.MANUFACTURER} ${Build.MODEL}")
         _entries.value.forEach { appendLine(it.line()) }
     }
 
