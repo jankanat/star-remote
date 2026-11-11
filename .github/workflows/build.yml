@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -60,7 +63,18 @@ jobs:
           sed -n '21,30p' errs.txt | while IFS= read -r l; do echo "::error::$l"; done
           sed -n '31,40p' errs.txt | while IFS= read -r l; do echo "::warning::$l"; done
 
+      - name: Имя файла
+        run: cp app/build/outputs/apk/release/*.apk StarRemote.apk
+
       - uses: actions/upload-artifact@v4
         with:
           name: StarRemote-apk
-          path: app/build/outputs/apk/release/*.apk
+          path: StarRemote.apk
+
+      # Последняя версия всегда по одной ссылке: releases/latest/download/StarRemote.apk
+      - name: Публикация
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v0.1.${{ github.run_number }}"
+          gh release create "$TAG" StarRemote.apk --title "Звёздный пульт $TAG" --notes "Сборка из ${GITHUB_SHA::7}" --latest
