@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -103,7 +104,8 @@ fun HomeScreen(
                 Glass(backdrop, RoundedCornerShape(50), onClick = onTorr) {
                     Row(Modifier.padding(horizontal = 18.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Ic.external, null, tint = P.text, modifier = Modifier.size(15.dp))
-                        Text("  Открыть TorrServe", color = P.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Открыть TorrServe", color = P.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -113,7 +115,8 @@ fun HomeScreen(
                         Glass(backdrop, RoundedCornerShape(16.dp), enabled = !st.busy, onClick = { onCustom(b) }) {
                             Row(Modifier.padding(horizontal = 16.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Box(Modifier.size(8.dp).background(P.accent, CircleShape))
-                                Text("  ${b.name}", color = P.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                Spacer(Modifier.width(8.dp))
+                                Text(b.name, color = P.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
                             }
                         }
                     }
@@ -141,8 +144,9 @@ private fun StatusPill(st: Status, backdrop: Backdrop) {
         Row(Modifier.padding(start = 12.dp, end = 14.dp, top = 9.dp, bottom = 9.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(8.dp).graphicsLayer { scaleX = if (st.tone == Tone.WAIT) .7f + .3f * a else 1f; scaleY = scaleX }
                 .alpha(a).background(dot, CircleShape))
-            Text("  ${st.text}", color = P.text, fontSize = 13.5.sp, fontWeight = FontWeight.Medium,
-                maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.width(10.dp))
+            Text(st.text, color = P.text, fontSize = 13.5.sp, fontWeight = FontWeight.Medium,
+                maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
         }
     }
 }

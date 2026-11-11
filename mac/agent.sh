@@ -8,7 +8,7 @@ DIR="$HOME/.starremote"
 LOG="$DIR/agent.log"
 TOKEN_FILE="$DIR/token"
 CONF="$DIR/config"
-VERSION="2"
+VERSION="3"
 
 TORR_PORT=8090
 [ -f "$CONF" ] && . "$CONF"
@@ -99,7 +99,8 @@ case "$METHOD $PATH_ONLY" in
     log "run: $NAME"
     START=$(date +%s)
     # не дольше 120 с: perl alarm вместо отсутствующей в macOS команды timeout
-    OUT="$(perl -e 'alarm shift; exec @ARGV' 120 /usr/bin/shortcuts run "$NAME" 2>&1)"
+    # stdin от /dev/null: иначе shortcuts ждёт входные данные из сетевого соединения и зависает
+    OUT="$(perl -e 'alarm shift; exec @ARGV' 120 /usr/bin/shortcuts run "$NAME" </dev/null 2>&1)"
     CODE=$?
     DUR=$(( $(date +%s) - START ))
     log "run: $NAME → код $CODE за ${DUR}с ${OUT:0:300}"
@@ -114,8 +115,8 @@ case "$METHOD $PATH_ONLY" in
     case "$SECS" in ''|*[!0-9]*) respond 400 'Bad Request' '{"ok":false,"error":"bad_secs"}';; esac
     [ -z "$NAME" ] && respond 400 'Bad Request' '{"ok":false,"error":"no_name"}'
     stop_guard
-    nohup /bin/bash -c 'sleep "$1"; echo "$(date "+%Y-%m-%d %H:%M:%S") страховка: run $2" >> "$3"; /usr/bin/shortcuts run "$2"; rm -f "$4"' \
-      guard "$SECS" "$NAME" "$LOG" "$GUARD_PID" >/dev/null 2>&1 &
+    nohup /bin/bash -c 'sleep "$1"; echo "$(date "+%Y-%m-%d %H:%M:%S") страховка: run $2" >> "$3"; /usr/bin/shortcuts run "$2" </dev/null; rm -f "$4"' \
+      guard "$SECS" "$NAME" "$LOG" "$GUARD_PID" </dev/null >/dev/null 2>&1 &
     echo $! > "$GUARD_PID"
     log "страховка: «$NAME» через ${SECS}с"
     respond 200 OK "{\"ok\":true,\"secs\":$SECS}"

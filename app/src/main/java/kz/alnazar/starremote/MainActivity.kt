@@ -14,8 +14,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -32,6 +32,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
@@ -106,8 +108,9 @@ private fun StarRemote(app: StarApp) {
     val stack = remember { mutableStateListOf(Route.HOME) }
     val route = stack.last()
     var torrUrl by remember { mutableStateOf("") }
-    val go: (Route) -> Unit = { r -> if (stack.last() != r) stack.add(r) }
-    val back: () -> Unit = { if (stack.size > 1) stack.removeAt(stack.lastIndex) }
+    var pushing by remember { mutableStateOf(true) }
+    val go: (Route) -> Unit = { r -> if (stack.last() != r) { pushing = true; stack.add(r) } }
+    val back: () -> Unit = { if (stack.size > 1) { pushing = false; stack.removeAt(stack.lastIndex) } }
     BackHandler(enabled = stack.size > 1) { back() }
 
     // события анимации от контроллера
@@ -143,18 +146,30 @@ private fun StarRemote(app: StarApp) {
         transition.AnimatedContent(
             transitionSpec = {
                 val spec = tween<IntOffset>(500, easing = IosEasing)
+                // экраны непрозрачные; тот, что уходит назад, плавно темнеет (см. затемнение ниже)
                 if (targetState.level > initialState.level) {
-                    (slideInHorizontally(spec) { it } togetherWith
-                        (slideOutHorizontally(spec) { -it * 3 / 10 } + fadeOut(tween(500), targetAlpha = .45f)))
+                    (slideInHorizontally(spec) { it } togetherWith slideOutHorizontally(spec) { -it * 3 / 10 })
                         .apply { targetContentZIndex = 1f }
                 } else {
-                    ((slideInHorizontally(spec) { -it * 3 / 10 } + fadeIn(tween(500), initialAlpha = .45f)) togetherWith
-                        slideOutHorizontally(spec) { it })
+                    (slideInHorizontally(spec) { -it * 3 / 10 } togetherWith slideOutHorizontally(spec) { it })
                         .apply { targetContentZIndex = -1f }
                 }
             },
             contentKey = { it },
         ) { r ->
+            val dim by this.transition.animateFloat(
+                transitionSpec = { tween(500, easing = IosEasing) }, label = "dim",
+            ) { e ->
+                when {
+                    e == EnterExitState.PostExit && pushing -> .5f
+                    e == EnterExitState.PreEnter && !pushing -> .5f
+                    else -> 0f
+                }
+            }
+            Box(Modifier.fillMaxSize().drawWithContent {
+                drawContent()
+                if (dim > 0f) drawRect(Color.Black.copy(alpha = dim))
+            }) {
             when (r) {
                 Route.HOME -> HomeScreen(
                     st = st, s = s, sky = sky, backdrop = backdrop,
@@ -184,6 +199,7 @@ private fun StarRemote(app: StarApp) {
                 Route.FEEDBACK -> FeedbackScreen(app, back)
                 Route.LOG -> LogScreen(app, back)
                 Route.TORRWEB -> TorrWebScreen(torrUrl, back)
+            }
             }
         }
     }
