@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Светло-жёлтая звезда с лучами на тёмно-синем фоне -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFF1B8"
+        android:pathData="M54,30 L57.2,50.8 L78,54 L57.2,57.2 L54,78 L50.8,57.2 L30,54 L50.8,50.8 Z" />
+    <path
+        android:fillColor="#66FFF1B8"
+        android:pathData="M54,44 L60,48 L64,54 L60,60 L54,64 L48,60 L44,54 L48,48 Z" />
+    <path
+        android:fillColor="#B3DCE5FF"
+        android:pathData="M33,35 m-1.4,0 a1.4,1.4 0 1,0 2.8,0 a1.4,1.4 0 1,0 -2.8,0" />
+    <path
+        android:fillColor="#99DCE5FF"
+        android:pathData="M74,73 m-1,0 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0" />
+</vector>

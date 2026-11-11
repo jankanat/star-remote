@@ -1,0 +1,19 @@
+# секреты
+.env
+*.jks
+*.keystore
+local.properties
+
+# сборка
+.gradle/
+build/
+app/build/
+*.apk
+*.aab
+
+# IDE и система
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+desktop.ini
