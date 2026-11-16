@@ -2,6 +2,10 @@ package kz.alnazar.starremote.ui
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
@@ -39,6 +43,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kz.alnazar.starremote.StarApp
+import kz.alnazar.starremote.data.Backup
 import kz.alnazar.starremote.data.CustomButton
 import kz.alnazar.starremote.data.Level
 import kz.alnazar.starremote.control.Schedule
@@ -79,9 +84,57 @@ fun SettingsRoot(app: StarApp, go: (Route) -> Unit, back: () -> Unit) {
                 NavRow(Ic.sound, "Звук и вибрация", fb) { go(Route.FEEDBACK) }
             }
         }
+        BackupSection(app)
         Section("Диагностика", "StarRemote ${app.version}") {
             row(58.dp) { NavRow(Ic.log, "Журнал", "${log.size} зап.") { go(Route.LOG) } }
         }
+    }
+}
+
+/** Сохранение настроек в Download/StarRemote и загрузка из файла. */
+@Composable
+private fun BackupSection(app: StarApp) {
+    val ctx = LocalContext.current
+    var withToken by remember { mutableStateOf(true) }
+    var note by remember { mutableStateOf("Файлы сохраняются в Download/StarRemote. Пригодятся после переустановки приложения или для второго телефона.") }
+    val toast = { m: String -> Toast.makeText(ctx, m, Toast.LENGTH_SHORT).show() }
+
+    fun saved(where: String) {
+        note = "Сохранено: $where" + if (withToken) ". В файле есть ключ доступа, не отправляй его посторонним." else ""
+        app.journal.ok("Настройки сохранены в $where" + if (withToken) " (с ключом)" else " (без ключа)")
+        toast("Настройки сохранены")
+    }
+
+    // Android 9 и старше: место для файла выбирается вручную
+    val create = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+        if (uri != null) runCatching { Backup.write(ctx, uri, app.settings.exportText(withToken, app.version)) }
+            .onSuccess { saved("выбранный файл") }
+            .onFailure { note = "Не удалось сохранить: ${it.message}"; app.journal.err(note) }
+    }
+    val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) runCatching { app.settings.importText(Backup.read(ctx, uri)) }
+            .onSuccess { n ->
+                note = "Загружено значений: $n"
+                app.journal.ok("Настройки загружены из файла ($n значений)")
+                toast("Настройки загружены")
+                app.controller.refresh()
+            }
+            .onFailure { note = "Не удалось загрузить: ${it.message}"; app.journal.err(note) }
+    }
+
+    Section("Резервная копия", note) {
+        row { SwitchRow("Сохранять ключ доступа", withToken, "Без него после загрузки ключ придётся ввести вручную") { withToken = it } }
+        row {
+            ActionRow("Сохранить настройки в файл") {
+                val name = Backup.fileName()
+                if (Build.VERSION.SDK_INT >= 29) {
+                    runCatching { Backup.saveToDownloads(ctx, name, app.settings.exportText(withToken, app.version)) }
+                        .onSuccess { saved(it) }
+                        .onFailure { note = "Не удалось сохранить: ${it.message}"; app.journal.err(note) }
+                } else create.launch(name)
+            }
+        }
+        row { ActionRow("Загрузить из файла") { open.launch(arrayOf("text/plain", "text/*", "application/octet-stream")) } }
     }
 }
 
