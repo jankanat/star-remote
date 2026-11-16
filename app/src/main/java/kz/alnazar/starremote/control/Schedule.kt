@@ -16,6 +16,7 @@ object Schedule {
 
     /** true, если сейчас Mac по расписанию должен работать (или расписание не задано). */
     fun shouldBeAwake(s: AppSettings): Boolean {
+        if (!s.scheduleOn) return false
         val f = parse(s.awakeFrom) ?: return true
         val t = parse(s.awakeTo) ?: return true
         return inWindow(f, t)
@@ -23,6 +24,7 @@ object Schedule {
 
     /** Текст для случая, когда Mac не ответил. */
     fun asleepText(s: AppSettings): String {
+        if (!s.scheduleOn) return "Mac спит"
         val f = parse(s.awakeFrom); val t = parse(s.awakeTo)
         if (f == null || t == null) return "Mac спит"
         return if (inWindow(f, t)) "Mac не отвечает, хотя должен работать до ${s.awakeTo.trim()}"

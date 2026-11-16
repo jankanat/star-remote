@@ -23,6 +23,7 @@ import kz.alnazar.starremote.net.Agent
 import kz.alnazar.starremote.net.AgentException
 import kz.alnazar.starremote.net.Discovery
 import kz.alnazar.starremote.net.Net
+import kz.alnazar.starremote.net.WakeOnLan
 import kz.alnazar.starremote.widget.StarWidget
 
 enum class Tone { IDLE, WAIT, ON, ERROR }
@@ -149,8 +150,11 @@ class Controller(private val ctx: Context, private val settings: SettingsRepo, p
         if (!st.configured) {
             fail("Заполни подключение в настройках: IP и ключ доступа"); return
         }
-        val h = ensureAwake() ?: return
-        _events.tryEmit(OpEvent.WarpStart)
+        // полёт начинается, как только Mac ответил или пошёл сигнал пробуждения
+        var warping = false
+        val startWarp = { if (!warping) { warping = true; _events.tryEmit(OpEvent.WarpStart) } }
+        val h = ensureAwake(onWaking = startWarp) ?: run { if (warping) _events.tryEmit(OpEvent.WarpEnd(false)); return }
+        startWarp()
         val a = agent(h)
 
         set { it.copy(tone = Tone.WAIT, text = "Запускаю шорткат «${st.onShortcut}»…") }
@@ -265,8 +269,8 @@ class Controller(private val ctx: Context, private val settings: SettingsRepo, p
         set { it.copy(tone = if (on) Tone.ON else Tone.IDLE, text = text, mac = "онлайн", online = true, isOn = on, torrUp = ms.torrserve) }
     }
 
-    /** Проверяет, отвечает ли Mac. Пробуждения по сети нет: Mac работает по расписанию. */
-    private suspend fun ensureAwake(): String? {
+    /** Проверяет, отвечает ли Mac, и при необходимости будит его по сети (Wake-on-LAN). */
+    private suspend fun ensureAwake(onWaking: () -> Unit = {}): String? {
         val st = s
         set { it.copy(tone = Tone.WAIT, text = "Проверяю Mac…") }
         host()?.let { h ->
@@ -277,16 +281,59 @@ class Controller(private val ctx: Context, private val settings: SettingsRepo, p
         }
         if (!Net.onWifi(ctx)) { fail("Телефон не подключён к Wi-Fi"); return null }
         // IP мог смениться: ищем Mac через Bonjour
-        Discovery.find(ctx, 2500)?.let { f ->
-            if (agent(f.host).ping(1500) != null) {
-                if (f.host != st.ip.trim()) log.warn("IP Mac сменился: ${f.host} (в настройках ${st.ip.ifBlank { "пусто" }})")
-                discoveredHost = f.host
-                set { it.copy(mac = "онлайн", online = true) }
-                return f.host
-            }
+        findByBonjour(st, 2500)?.let { return it }
+
+        if (!st.wolEnabled) { asleep(st); return null }
+        if (!WakeOnLan.isValidMac(st.mac)) {
+            fail(if (st.mac.isBlank()) "Mac спит, а MAC-адрес для пробуждения не указан" else "MAC-адрес указан неверно")
+            return null
         }
-        asleep(st)
+
+        onWaking()
+        set { it.copy(tone = Tone.WAIT, text = "Отправляю сигнал пробуждения…", mac = "просыпается") }
+        val retries = st.wolRetries.coerceIn(1, 10)
+        val waitMs = st.wakeWaitSec.coerceIn(10, 300) * 1000L
+        val interval = maxOf(2000L, waitMs / retries)
+        val t0 = System.currentTimeMillis()
+        var sent = 0
+        var nextWol = 0L
+        var nextDiscovery = 4000L
+
+        while (true) {
+            val elapsed = System.currentTimeMillis() - t0
+            if (elapsed > waitMs) break
+            if (sent < retries && elapsed >= nextWol) {
+                val n = runCatching { WakeOnLan.send(ctx, st.mac, host()) }
+                    .getOrElse { log.err("Сигнал не отправлен: ${it.message}"); 0 }
+                sent++
+                nextWol += interval
+                log.info("Сигнал пробуждения $sent/$retries (пакетов: $n)")
+                if (sent == 1) set { it.copy(text = "Mac просыпается…") }
+            }
+            val h = host()
+            if (h != null && agent(h).ping(900) != null) {
+                log.ok("Mac проснулся за ${"%.1f".format((System.currentTimeMillis() - t0) / 1000.0)} с ($h)")
+                set { it.copy(mac = "онлайн", online = true) }
+                return h
+            }
+            if (elapsed >= nextDiscovery) {
+                nextDiscovery += 6000
+                findByBonjour(st, 2000)?.let { return it }
+            }
+            kotlinx.coroutines.delay(500)
+        }
+        fail("Mac не проснулся за ${st.wakeWaitSec} с. Проверь кабель Ethernet и MAC-адрес")
+        set { it.copy(mac = "спит") }
         return null
+    }
+
+    private suspend fun findByBonjour(st: AppSettings, timeoutMs: Long): String? {
+        val f = Discovery.find(ctx, timeoutMs) ?: return null
+        if (agent(f.host).ping(1500) == null) return null
+        if (f.host != st.ip.trim()) log.warn("IP Mac сменился: ${f.host} (в настройках ${st.ip.ifBlank { "пусто" }})")
+        discoveredHost = f.host
+        set { it.copy(mac = "онлайн", online = true) }
+        return f.host
     }
 
     /** Mac не ответил: текст зависит от расписания. */
